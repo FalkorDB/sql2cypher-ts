@@ -53,9 +53,6 @@ export class SqlToCypherConverter {
 
         // Parse WHERE clause if exists
         if (whereIndex !== -1) {
-            const whereEndIndex = Math.min(...[orderByIndex, limitIndex]
-                .filter(i => i !== -1)
-                .concat([tokens.length]));
             const [whereExpr] = this.parseWhereExpression(tokens, whereIndex + 1);
             result.where = whereExpr;
         }
@@ -73,6 +70,7 @@ export class SqlToCypherConverter {
 
         return result;
     }
+
     private determineQueryType(token: string): SqlParseResult['type'] {
         switch (token) {
             case 'SELECT': return 'SELECT';
@@ -355,16 +353,19 @@ export class SqlToCypherConverter {
             match = parsed.joins.reduce((acc, join) => {
                 const joinTable = this.convertToNodeLabel(join.table);
                 const [leftTable, leftField] = (join.condition.field as string).split('.');
-                const [rightTable, rightField] = (join.condition.value as string).split('.');
+                const [rightTable] = (join.condition.value as string).split('.');
+
+                // Use relationship properties based on join fields if specified
+                const relProps = leftField ? `[r {${leftField}: ${rightTable}.${leftField}}]` : '[]';
 
                 // Convert SQL join to Cypher pattern
                 switch (join.type) {
                     case 'INNER JOIN':
-                        return `${acc}\nMATCH (${leftTable})-[]->(${rightTable}:${joinTable})`;
+                        return `${acc}\nMATCH (${leftTable})-${relProps}->(${rightTable}:${joinTable})`;
                     case 'LEFT JOIN':
-                        return `${acc}\nOPTIONAL MATCH (${leftTable})-[]->(${rightTable}:${joinTable})`;
+                        return `${acc}\nOPTIONAL MATCH (${leftTable})-${relProps}->(${rightTable}:${joinTable})`;
                     case 'RIGHT JOIN':
-                        return `${acc}\nOPTIONAL MATCH (${leftTable})<-[]-(${rightTable}:${joinTable})`;
+                        return `${acc}\nOPTIONAL MATCH (${leftTable})<-${relProps}-(${rightTable}:${joinTable})`;
                 }
             }, match);
         }
