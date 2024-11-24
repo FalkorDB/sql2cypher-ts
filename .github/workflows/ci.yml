@@ -22,13 +22,13 @@ jobs:
         node-version: '16' # Use the Node.js version you need
 
     - name: Install dependencies
-      run: |
-        npm install
+      run: npm install
+
+    - name: Run linting
+      run: npm run lint        
 
     - name: Compile TypeScript
-      run: |
-        npx tsc
+      run: npx tsc
 
     - name: Run tests (if applicable)
-      run: |
-        npm test
+      run: npm test
