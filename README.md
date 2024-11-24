@@ -17,10 +17,12 @@ npm install sql2cypher-ts
 ## Usage
 
 ```typescript
-import { sql2cypher } from 'sql2cypher-ts';
+import { SQL2Cypher } from 'sql2cypher-ts';
+
+const converter = new SQL2Cypher();
 
 const sql = 'SELECT * FROM table WHERE column = 1';
-const cypher = sql2cypher(sql);
+const cypher = converter.convert(sql);
 console.log(cypher);
 ```
 
