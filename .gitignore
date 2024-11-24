@@ -1,0 +1,30 @@
+# Node.js dependencies
+/node_modules/
+
+# TypeScript output directory
+/dist/
+
+# Jest coverage output
+/coverage/
+
+# Logs
+*.log
+
+# IDE-specific files
+/.idea/
+/.vscode/
+
+# MacOS specific files
+.DS_Store
+
+# npm package lock file (optional, depending on preference)
+/package-lock.json
+/yarn.lock
+
+# Build directories (if using bundlers like Webpack or Rollup)
+/build/
+
+# Environment files
+.env
+.env.local
+.env.*.local
