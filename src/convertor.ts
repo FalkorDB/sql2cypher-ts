@@ -1,4 +1,5 @@
 import { Parser } from 'node-sql-parser';
+import { isColumnRef, isSQLValue, ASTType, TableRef, ColumnRef, SQLValue, BinaryExpression, Column, AggregateExpression, OrderByExpression, SetExpression, SelectAST, InsertAST, UpdateAST, DeleteAST } from './types';
 
 export class SQL2Cypher {
   private parser: Parser;
