@@ -1,9 +1,9 @@
-import { OrderByClause, SqlParseResult, WhereCondition, WhereExpression, WhereOperator } from "./types";
+import { OrderByClause, SqlParseResult, WhereCondition, WhereExpression, WhereOperator, JoinClause, JoinType } from "./types";
 
 export class SqlToCypherConverter {
     private tokenize(sql: string): string[] {
-        // Split SQL into tokens, preserving quoted strings and operators
-        const regex = /('[^']*'|\b\w+\b|[<>=!]+|\(|\)|,)/g;
+        // Enhanced regex to handle JOIN keywords
+        const regex = /('[^']*'|\b\w+\b|[<>=!]+|\(|\)|,|\.|JOIN|ON|INNER|LEFT|RIGHT)/g;
         return (sql.match(regex) || []).filter(token => token.trim());
     }
 
@@ -12,15 +12,13 @@ export class SqlToCypherConverter {
         const result: SqlParseResult = {
             type: 'SELECT',
             tables: [],
-            columns: []
+            columns: [],
+            joins: []
         };
 
-        // Determine query type
         result.type = this.determineQueryType(tokens[0]);
+        let currentIndex = 1;
 
-        let currentIndex = 1; // Skip query type token
-
-        // Parse SELECT columns
         if (result.type === 'SELECT') {
             const fromIndex = tokens.indexOf('FROM');
             if (fromIndex === -1) throw new Error('FROM clause is required');
@@ -29,15 +27,29 @@ export class SqlToCypherConverter {
             currentIndex = fromIndex + 1;
         }
 
-        // Parse FROM clause
+        // Parse FROM clause and any subsequent JOINs
         const whereIndex = tokens.indexOf('WHERE');
         const orderByIndex = tokens.indexOf('ORDER');
         const limitIndex = tokens.indexOf('LIMIT');
-        const endIndex = Math.min(...[whereIndex, orderByIndex, limitIndex]
+
+        // Find the first JOIN keyword
+        const joinIndex = this.findFirstJoinIndex(tokens, currentIndex);
+
+        // Parse initial table
+        const tableEndIndex = joinIndex !== -1 ? joinIndex : Math.min(...[whereIndex, orderByIndex, limitIndex]
             .filter(i => i !== -1)
             .concat([tokens.length]));
 
-        result.tables = this.parseTables(tokens.slice(currentIndex, endIndex));
+        result.tables = this.parseTables(tokens.slice(currentIndex, tableEndIndex));
+
+        // Parse JOINs if they exist
+        if (joinIndex !== -1) {
+            const joinEndIndex = Math.min(...[whereIndex, orderByIndex, limitIndex]
+                .filter(i => i !== -1)
+                .concat([tokens.length]));
+            result.joins = this.parseJoins(tokens, joinIndex, joinEndIndex);
+            currentIndex = joinEndIndex;
+        }
 
         // Parse WHERE clause if exists
         if (whereIndex !== -1) {
@@ -61,7 +73,6 @@ export class SqlToCypherConverter {
 
         return result;
     }
-
     private determineQueryType(token: string): SqlParseResult['type'] {
         switch (token) {
             case 'SELECT': return 'SELECT';
@@ -83,6 +94,14 @@ export class SqlToCypherConverter {
         return tokens
             .filter(token => token !== ',')
             .map(table => table.trim());
+    }
+
+    private findFirstJoinIndex(tokens: string[], startIndex: number): number {
+        const joinKeywords = ['JOIN', 'INNER JOIN', 'LEFT JOIN', 'RIGHT JOIN'];
+        return Math.min(...joinKeywords.map(keyword => {
+            const index = tokens.indexOf(keyword.split(' ')[0], startIndex);
+            return index !== -1 ? index : Infinity;
+        }));
     }
 
     private parseWhereExpression(tokens: string[], startIndex: number): [WhereExpression, number] {
@@ -262,9 +281,95 @@ export class SqlToCypherConverter {
         return value;
     }
 
+
+    private parseJoins(tokens: string[], startIndex: number, endIndex: number): JoinClause[] {
+        const joins: JoinClause[] = [];
+        let currentIndex = startIndex;
+
+        while (currentIndex < endIndex) {
+            const joinType = this.determineJoinType(tokens, currentIndex);
+            if (!joinType) break;
+
+            // Skip join type tokens
+            currentIndex += joinType.split(' ').length;
+
+            // Get table name
+            const table = tokens[currentIndex];
+            currentIndex++;
+
+            // Parse ON condition
+            if (tokens[currentIndex] !== 'ON') {
+                throw new Error('JOIN must have ON clause');
+            }
+            currentIndex++;
+
+            // Parse join condition
+            const condition = this.parseJoinCondition(tokens, currentIndex);
+            currentIndex = condition.nextIndex;
+
+            joins.push({
+                type: joinType,
+                table,
+                condition: condition.condition
+            });
+        }
+
+        return joins;
+    }
+
+    private determineJoinType(tokens: string[], index: number): JoinType | null {
+        const token = tokens[index];
+        const nextToken = tokens[index + 1];
+
+        if (token === 'JOIN') return 'INNER JOIN';
+        if (token === 'INNER' && nextToken === 'JOIN') return 'INNER JOIN';
+        if (token === 'LEFT' && nextToken === 'JOIN') return 'LEFT JOIN';
+        if (token === 'RIGHT' && nextToken === 'JOIN') return 'RIGHT JOIN';
+        return null;
+    }
+
+    private parseJoinCondition(tokens: string[], startIndex: number): { condition: WhereCondition, nextIndex: number } {
+        // Parse basic join condition (e.g., table1.id = table2.id)
+        const leftParts = tokens[startIndex].split('.');
+        const operator = tokens[startIndex + 1];
+        const rightParts = tokens[startIndex + 2].split('.');
+
+        return {
+            condition: {
+                type: 'CONDITION',
+                field: leftParts.join('.'),
+                operator: operator as WhereOperator,
+                value: rightParts.join('.'),
+                isJoinCondition: true
+            },
+            nextIndex: startIndex + 3
+        };
+    }
+
     private buildCypherMatch(parsed: SqlParseResult): string {
-        const nodeLabel = this.convertToNodeLabel(parsed.tables[0]);
-        return `MATCH (n:${nodeLabel})`;
+        const mainTable = this.convertToNodeLabel(parsed.tables[0]);
+        let match = `MATCH (n:${mainTable})`;
+
+        // Add JOIN patterns
+        if (parsed.joins && parsed.joins.length > 0) {
+            match = parsed.joins.reduce((acc, join) => {
+                const joinTable = this.convertToNodeLabel(join.table);
+                const [leftTable, leftField] = (join.condition.field as string).split('.');
+                const [rightTable, rightField] = (join.condition.value as string).split('.');
+
+                // Convert SQL join to Cypher pattern
+                switch (join.type) {
+                    case 'INNER JOIN':
+                        return `${acc}\nMATCH (${leftTable})-[]->(${rightTable}:${joinTable})`;
+                    case 'LEFT JOIN':
+                        return `${acc}\nOPTIONAL MATCH (${leftTable})-[]->(${rightTable}:${joinTable})`;
+                    case 'RIGHT JOIN':
+                        return `${acc}\nOPTIONAL MATCH (${leftTable})<-[]-(${rightTable}:${joinTable})`;
+                }
+            }, match);
+        }
+
+        return match;
     }
 
     private buildCypherWhere(expr: WhereExpression | undefined): string {
@@ -306,12 +411,34 @@ export class SqlToCypherConverter {
         return `WHERE ${buildExpr(expr)}`;
     }
 
-    private buildCypherReturn(columns: string[]): string {
-        if (columns.includes('*') || columns.length === 0) {
+    private buildCypherReturn(columns: string[], joins?: JoinClause[]): string {
+        if (columns.includes('*')) {
+            if (!joins || joins.length === 0) {
+                return 'RETURN n';
+            }
+            // Return all properties from all joined nodes
+            const tables = ['n', ...joins.map(j => j.table.toLowerCase())];
+            return `RETURN ${tables.join(', ')}`;
+        }
+
+        // If no columns specified (shouldn't happen in valid SQL), return all properties
+        if (columns.length === 0) {
             return 'RETURN n';
         }
-        const props = columns.map(col => `n.${col}`).join(', ');
-        return `RETURN ${props}`;
+
+        // Handle specific columns with table prefixes
+        const returnParts = columns.map(col => {
+            const parts = col.split('.');
+            if (parts.length === 2) {
+                // Table-prefixed column
+                const [table, field] = parts;
+                return `${table.toLowerCase()}.${field}`;
+            }
+            // Non-prefixed column assumes main table
+            return `n.${col}`;
+        });
+
+        return `RETURN ${returnParts.join(', ')}`;
     }
 
     private buildCypherOrderBy(orderBy?: OrderByClause[]): string {
@@ -337,7 +464,7 @@ export class SqlToCypherConverter {
                 cypher = [
                     this.buildCypherMatch(parsed),
                     this.buildCypherWhere(parsed.where),
-                    this.buildCypherReturn(parsed.columns),
+                    this.buildCypherReturn(parsed.columns, parsed.joins),
                     this.buildCypherOrderBy(parsed.orderBy),
                     this.buildCypherLimit(parsed.limit)
                 ].filter(part => part).join('\n');
