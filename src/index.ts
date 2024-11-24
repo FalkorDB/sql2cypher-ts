@@ -1,2 +1,1 @@
-export { SqlToCypherConverter } from './convertor';
-export type { SqlParseResult } from './types';
+export { SQL2Cypher } from './convertor';
