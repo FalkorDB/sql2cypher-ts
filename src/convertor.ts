@@ -68,9 +68,9 @@ export class SQL2Cypher {
 
   private handleDelete(ast: DeleteAST): string {
     const { from, where } = ast;
-    const whereClause = where ? `WHERE ${this.buildWhereClause(where, from)}` : '';
+    const whereClause = where ? `WHERE ${this.buildWhereClause(where, from)}\n` : '';
 
-    return `MATCH (n:${from[0].table})\n${whereClause}\nDETACH DELETE n`;
+    return `MATCH (n:${from[0].table})\n${whereClause}DETACH DELETE n`;
   }
 
   private buildMatchClause(fromClause: TableRef[]): string {

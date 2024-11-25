@@ -61,3 +61,14 @@ test('converts SELECT column1, column2 FROM t1 WHERE column1 = 1 AND (column2 = 
     const result = converter.convert('SELECT column1, column2 FROM t1 WHERE column1 = 1 AND (column2 = 2 OR column3 = 3) AND (column4 = 4 OR column5 = 5)');
     expect(result).toBe('MATCH (t1:t1)\nWHERE t1.column1 = 1 AND (t1.column2 = 2 OR t1.column3 = 3) AND (t1.column4 = 4 OR t1.column5 = 5)\nRETURN t1.column1, t1.column2');
 });
+
+// Test cases for DELETE
+test('converts DELETE FROM t1', () => {
+    const result = converter.convert('DELETE FROM t1');
+    expect(result).toBe('MATCH (n:t1)\nDETACH DELETE n');
+});
+
+// test('converts DELETE FROM t1 WHERE column1 = 1', () => {
+//     const result = converter.convert('DELETE FROM t1 WHERE column1 = 1');
+//     expect(result).toBe('MATCH (n:t1)\nWHERE n.column1 = 1\nDETACH DELETE n');
+// });
