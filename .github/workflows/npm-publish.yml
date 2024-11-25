@@ -16,7 +16,7 @@ jobs:
         with:
           node-version: 20
           registry-url: https://registry.npmjs.org/
-      - run: npm run install
+      - run: npm install
       - run: npm run build
       - run: npm test
       - run: npm publish
