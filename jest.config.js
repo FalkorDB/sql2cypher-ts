@@ -3,5 +3,5 @@ export default {
   transform: {
     '^.+\\.ts$': 'ts-jest',
   },
-  moduleFileExtensions: ['ts', 'js', 'json'],
+  moduleFileExtensions: ['js'],
 };
