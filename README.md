@@ -11,13 +11,13 @@ This is a TypeScript library that converts SQL queries to Cypher queries. It is 
 ## Installation
 
 ```bash
-npm install sql2cypher-ts
+npm install sql2cypher
 ```
 
 ## Usage
 
 ```typescript
-import { SQL2Cypher } from 'sql2cypher-ts';
+import { SQL2Cypher } from 'sql2cypher';
 
 const converter = new SQL2Cypher();
 
