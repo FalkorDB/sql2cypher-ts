@@ -1,6 +1,6 @@
 {
-  "name": "sql2cypher-ts",
-  "version": "1.0.0",
+  "name": "sql2cypher",
+  "version": "0.2.0",
   "main": "index.js",
   "type": "module",
   "scripts": {
@@ -13,7 +13,7 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "description": "",
   "devDependencies": {
     "@types/jest": "^29.5.14",
