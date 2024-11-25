@@ -109,11 +109,12 @@ export class SQL2Cypher {
     const right = where.right;
 
     let leftStr: string;
-    if (isColumnRef(left)){
+    if (isColumnRef(left)) {
       leftStr = `${left.table || fromClause[0].table}.${left.column}`;
     } else if (isSQLValue(left)) {
       leftStr = typeof left.value === 'string' ? `'${left.value}'` : left.value;
-    } else { 
+    } else {
+      // Add parentheses for nested conditions on the left
       leftStr = this.buildWhereClause(left as BinaryExpression, fromClause);
     }
 
@@ -123,7 +124,11 @@ export class SQL2Cypher {
     } else if (isSQLValue(right)) {
       rightStr = typeof right.value === 'string' ? `'${right.value}'` : right.value;
     } else {
-      rightStr = this.buildWhereClause(right as BinaryExpression, fromClause);
+      // Add parentheses for nested conditions on the right if it's an OR condition
+      const rightExpr = right as BinaryExpression;
+      rightStr = rightExpr.operator === 'OR' ? 
+        `(${this.buildWhereClause(rightExpr, fromClause)})` : 
+        this.buildWhereClause(rightExpr, fromClause);
     }
 
     return `${leftStr} ${where.operator} ${rightStr}`;
@@ -148,4 +153,3 @@ export class SQL2Cypher {
     }).join(', ');
   }
 }
-
