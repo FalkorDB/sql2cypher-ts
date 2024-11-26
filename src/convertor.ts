@@ -10,7 +10,6 @@ import {
   Column, 
   AggregateExpression, 
   OrderByExpression, 
-  SetExpression, 
   SelectAST, 
   InsertAST, 
   UpdateAST, 
