@@ -50,20 +50,54 @@ export class SQL2Cypher {
 
   private handleInsert(ast: InsertAST): string {
     const { table, columns, values } = ast;
-    const props = columns.reduce<Record<string, any>>((acc, col, idx) => {
-      acc[col] = values[0].value[idx].value;
-      return acc;
-    }, {});
-
-    return `CREATE (n:${table.table}) SET n = ${JSON.stringify(props)}`;
+    
+    // Handle array of table references
+    const tableName = Array.isArray(table) 
+      ? table[0].table 
+      : (table as any).table;
+  
+    if (!tableName) {
+      throw new Error(`Unable to extract table name from: ${JSON.stringify(table)}`);
+    }
+  
+    // Handle multiple value sets 
+    const createClauses = values.map((valueSet) => {
+      return `(:${tableName} {${columns.map((col, idx) => 
+        `${col}: ${valueSet.value[idx].value}`).join(', ')}})`; // Note the extra closing }
+    });
+  
+    return `CREATE ${createClauses.join(', ')}`;
   }
+  
 
   private handleUpdate(ast: UpdateAST): string {
     const { table, set, where } = ast;
-    const setClause = this.buildSetClause(set);
-    const whereClause = where ? `WHERE ${this.buildWhereClause(where, table)}` : '';
-
-    return `MATCH (n:${table[0].table})\n${whereClause}\nSET ${setClause}`;
+    
+    // Ensure table is correctly parsed
+    const tableName = Array.isArray(table) 
+      ? table[0].table 
+      : (table as any).table;
+  
+    if (!tableName) {
+      throw new Error(`Unable to extract table name from: ${JSON.stringify(table)}`);
+    }
+  
+    // Build SET clause with correct value extraction
+    const setClause = set.map(item => {
+      // More robust value extraction
+      let value = item.value;
+      
+      // If value is an object with a 'value' property, extract it
+      if (typeof value === 'object' && value !== null && 'value' in value) {
+        value = (value as any).value;
+      }
+      
+      return `n.${item.column} = ${typeof value === 'string' ? `'${value}'` : value}`;
+    }).join(', ');
+  
+    const whereClause = where ? `WHERE ${this.buildWhereClause(where, table)}\n` : '';
+  
+    return `MATCH (n:${tableName})\n${whereClause}SET ${setClause}`;
   }
 
   private handleDelete(ast: DeleteAST): string {
