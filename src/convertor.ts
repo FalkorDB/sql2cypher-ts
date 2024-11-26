@@ -35,7 +35,7 @@ export class SQL2Cypher {
 
   private handleSelect(ast: SelectAST): string {
     const { columns, from, where, groupby, orderby, limit } = ast;
-    
+
     const matchClause = this.buildMatchClause(from);
     const returnClause = this.buildReturnClause(columns, from);
     const whereClause = where ? `WHERE ${this.buildWhereClause(where, from)}` : '';
@@ -70,10 +70,12 @@ export class SQL2Cypher {
     const { from, where } = ast;
     const whereClause = where ? `WHERE ${this.buildWhereClause(where, from)}\n` : '';
 
-    return from.map(table => {
+    const matches = from.map(table => {
       const alias = table.as || table.table;
-      return `MATCH (${alias}:${table.table})\n${whereClause}DETACH DELETE ${alias}`;
-    }).join('\n');
+      return `(${alias}:${table.table})`;
+    }).join(', ');
+    const deletes = from.map(table => table.as || table.table).join(', ');
+    return `MATCH ${matches}\n${whereClause}DETACH DELETE ${deletes}`;
   }
 
   private buildMatchClause(fromClause: TableRef[]): string {
@@ -129,8 +131,8 @@ export class SQL2Cypher {
     } else {
       // Add parentheses for nested conditions on the right if it's an OR condition
       const rightExpr = right as BinaryExpression;
-      rightStr = rightExpr.operator === 'OR' ? 
-        `(${this.buildWhereClause(rightExpr, fromClause)})` : 
+      rightStr = rightExpr.operator === 'OR' ?
+        `(${this.buildWhereClause(rightExpr, fromClause)})` :
         this.buildWhereClause(rightExpr, fromClause);
     }
 
