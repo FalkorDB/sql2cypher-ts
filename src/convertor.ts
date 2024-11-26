@@ -35,7 +35,7 @@ export class SQL2Cypher {
 
   private handleSelect(ast: SelectAST): string {
     const { columns, from, where, groupby, orderby, limit } = ast;
-    
+
     const matchClause = this.buildMatchClause(from);
     const returnClause = this.buildReturnClause(columns, from);
     const whereClause = where ? `WHERE ${this.buildWhereClause(where, from)}` : '';
@@ -70,7 +70,12 @@ export class SQL2Cypher {
     const { from, where } = ast;
     const whereClause = where ? `WHERE ${this.buildWhereClause(where, from)}\n` : '';
 
-    return `MATCH (n:${from[0].table})\n${whereClause}DETACH DELETE n`;
+    const matches = from.map(table => {
+      const alias = table.as || table.table;
+      return `(${alias}:${table.table})`;
+    }).join(', ');
+    const deletes = from.map(table => table.as || table.table).join(', ');
+    return `MATCH ${matches}\n${whereClause}DETACH DELETE ${deletes}`;
   }
 
   private buildMatchClause(fromClause: TableRef[]): string {
@@ -86,13 +91,13 @@ export class SQL2Cypher {
 
   private buildReturnClause(columns: Column[] | '*', fromClause: TableRef[]): string {
     if (columns === '*') {
-      return `RETURN ${fromClause[0].table}.*`;
+      return `RETURN ${fromClause[0].as || fromClause[0].table}.*`;
     }
 
     const returnItems = columns.map(col => {
       if (col.expr.type === 'column_ref') {
         const expr = col.expr as ColumnRef;
-        return `${expr.table || fromClause[0].table}.${expr.column}`;
+        return `${expr.table || fromClause[0].as || fromClause[0].table}.${expr.column}`;
       }
       if (col.expr.type === 'aggr_func') {
         const expr = col.expr as AggregateExpression;
@@ -126,8 +131,8 @@ export class SQL2Cypher {
     } else {
       // Add parentheses for nested conditions on the right if it's an OR condition
       const rightExpr = right as BinaryExpression;
-      rightStr = rightExpr.operator === 'OR' ? 
-        `(${this.buildWhereClause(rightExpr, fromClause)})` : 
+      rightStr = rightExpr.operator === 'OR' ?
+        `(${this.buildWhereClause(rightExpr, fromClause)})` :
         this.buildWhereClause(rightExpr, fromClause);
     }
 
