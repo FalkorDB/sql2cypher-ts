@@ -1,19 +1,19 @@
 import { Parser } from 'node-sql-parser';
-import { 
-  isColumnRef, 
-  isSQLValue, 
-  ASTType, 
-  TableRef, 
-  ColumnRef, 
-  SQLValue, 
-  BinaryExpression, 
-  Column, 
-  AggregateExpression, 
-  OrderByExpression, 
-  SelectAST, 
-  InsertAST, 
-  UpdateAST, 
-  DeleteAST 
+import {
+  isColumnRef,
+  isSQLValue,
+  ASTType,
+  TableRef,
+  ColumnRef,
+  SQLValue,
+  BinaryExpression,
+  Column,
+  AggregateExpression,
+  OrderByExpression,
+  SelectAST,
+  InsertAST,
+  UpdateAST,
+  DeleteAST
 } from './types';
 
 export class SQL2Cypher {
@@ -74,8 +74,10 @@ export class SQL2Cypher {
 
     // Handle multiple value sets 
     const createClauses = values.map((valueSet) => {
-      return `(:${tableName} {${columns.map((col, idx) => 
-        `${col}: ${valueSet.value[idx].value}`).join(', ')}})`; 
+      return `(:${tableName} {${columns.map((col, idx) => {
+        const value = typeof valueSet.value[idx].value === 'string' ? `'${valueSet.value[idx].value}'` : valueSet.value[idx].value;
+        return `${col}: ${value}`
+      }).join(', ')}})`;
     });
 
     return `CREATE ${createClauses.join(', ')}`;
@@ -83,7 +85,7 @@ export class SQL2Cypher {
 
   private handleUpdate(ast: UpdateAST): string {
     const { table, set, where } = ast;
-    
+
     // Ensure table is correctly parsed
     const tableName = table[0].table;
     if (!tableName) {
@@ -96,12 +98,12 @@ export class SQL2Cypher {
     const setClause = set.map(item => {
       // More robust value extraction
       let value = item.value;
-      
+
       // If value is an object with a 'value' property, extract it
       if (typeof value === 'object' && value !== null && 'value' in value) {
         value = (value as any).value;
       }
-      
+
       return `${alias}.${item.column} = ${typeof value === 'string' ? `'${value}'` : value}`;
     }).join(', ');
 

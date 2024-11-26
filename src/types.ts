@@ -15,7 +15,7 @@ export interface ColumnRef {
 }
 
 export interface SQLValue {
-  type: 'string' | 'number' | 'bool';
+  type: 'single_quote_string' | 'string' | 'number' | 'bool';
   value: any;
 }
 
@@ -92,5 +92,5 @@ export function isColumnRef(expr: ColumnRef | SQLValue | BinaryExpression): expr
 }
 
 export function isSQLValue(expr: ColumnRef | SQLValue | BinaryExpression): expr is SQLValue {
-  return ['string', 'number', 'bool'].includes(expr.type);
+  return ['single_quote_string', 'string', 'number', 'bool'].includes(expr.type);
 }
