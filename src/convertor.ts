@@ -89,7 +89,6 @@ export class SQL2Cypher {
 
   private buildReturnClause(columns: Column[] | '*', fromClause: TableRef[]): string {
     if (columns === '*') {
-      fromClause[0].as
       return `RETURN ${fromClause[0].as || fromClause[0].table}.*`;
     }
 
