@@ -1,5 +1,21 @@
 import { Parser } from 'node-sql-parser';
-import { isColumnRef, isSQLValue, ASTType, TableRef, ColumnRef, SQLValue, BinaryExpression, Column, AggregateExpression, OrderByExpression, SetExpression, SelectAST, InsertAST, UpdateAST, DeleteAST } from './types';
+import { 
+  isColumnRef, 
+  isSQLValue, 
+  ASTType, 
+  TableRef, 
+  ColumnRef, 
+  SQLValue, 
+  BinaryExpression, 
+  Column, 
+  AggregateExpression, 
+  OrderByExpression, 
+  SetExpression, 
+  SelectAST, 
+  InsertAST, 
+  UpdateAST, 
+  DeleteAST 
+} from './types';
 
 export class SQL2Cypher {
   private parser: Parser;
@@ -50,38 +66,33 @@ export class SQL2Cypher {
 
   private handleInsert(ast: InsertAST): string {
     const { table, columns, values } = ast;
-    
-    // Handle array of table references
-    const tableName = Array.isArray(table) 
-      ? table[0].table 
-      : (table as any).table;
-  
+
+    // Ensure table is correctly parsed
+    const tableName = table[0].table;
     if (!tableName) {
       throw new Error(`Unable to extract table name from: ${JSON.stringify(table)}`);
     }
-  
+
     // Handle multiple value sets 
     const createClauses = values.map((valueSet) => {
       return `(:${tableName} {${columns.map((col, idx) => 
-        `${col}: ${valueSet.value[idx].value}`).join(', ')}})`; // Note the extra closing }
+        `${col}: ${valueSet.value[idx].value}`).join(', ')}})`; 
     });
-  
+
     return `CREATE ${createClauses.join(', ')}`;
   }
-  
 
   private handleUpdate(ast: UpdateAST): string {
     const { table, set, where } = ast;
     
     // Ensure table is correctly parsed
-    const tableName = Array.isArray(table) 
-      ? table[0].table 
-      : (table as any).table;
-  
+    const tableName = table[0].table;
     if (!tableName) {
       throw new Error(`Unable to extract table name from: ${JSON.stringify(table)}`);
     }
-  
+
+    const alias = table[0].as || tableName;
+
     // Build SET clause with correct value extraction
     const setClause = set.map(item => {
       // More robust value extraction
@@ -92,12 +103,12 @@ export class SQL2Cypher {
         value = (value as any).value;
       }
       
-      return `n.${item.column} = ${typeof value === 'string' ? `'${value}'` : value}`;
+      return `${alias}.${item.column} = ${typeof value === 'string' ? `'${value}'` : value}`;
     }).join(', ');
-  
+
     const whereClause = where ? `WHERE ${this.buildWhereClause(where, table)}\n` : '';
-  
-    return `MATCH (n:${tableName})\n${whereClause}SET ${setClause}`;
+
+    return `MATCH (${alias}:${tableName})\n${whereClause}SET ${setClause}`;
   }
 
   private handleDelete(ast: DeleteAST): string {
@@ -183,12 +194,5 @@ export class SQL2Cypher {
   private buildGroupByClause(groupby: ColumnRef[]): string {
     const columns = groupby.map(group => group.column).join(', ');
     return `${columns}, count(*) as count`;
-  }
-
-  private buildSetClause(set: SetExpression[]): string {
-    return set.map(item => {
-      const value = typeof item.value === 'string' ? `'${item.value}'` : item.value;
-      return `n.${item.column} = ${value}`;
-    }).join(', ');
   }
 }

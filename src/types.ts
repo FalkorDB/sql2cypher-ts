@@ -67,7 +67,7 @@ export interface SelectAST extends BaseAST {
 
 export interface InsertAST extends BaseAST {
   type: 'insert';
-  table: TableRef;
+  table: TableRef[];
   columns: string[];
   values: { type: 'expr_list'; value: SQLValue[] }[];
 }

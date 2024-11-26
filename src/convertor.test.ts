@@ -123,15 +123,15 @@ test('converts INSERT INTO t1 (column1, column2) VALUES (1, 2), (3, 4)', () => {
 /**  Test cases for UPDATE */
 test('converts UPDATE t1 SET column1 = 1, column2 = 2', () => {
     const result = converter.convert('UPDATE t1 SET column1 = 1, column2 = 2');
-    expect(result).toBe('MATCH (n:t1)\nSET n.column1 = 1, n.column2 = 2');
+    expect(result).toBe('MATCH (t1:t1)\nSET t1.column1 = 1, t1.column2 = 2');
 });
 
-// test('converts UPDATE t1 SET column1 = 1, column2 = 2 WHERE column3 = 3', () => {
-//     const result = converter.convert('UPDATE t1 SET column1 = 1, column2 = 2 WHERE column3 = 3');
-//     expect(result).toBe('MATCH (n:t1)\nWHERE n.column3 = 3\nSET n.column1 = 1, n.column2 = 2');
-// });
+test('converts UPDATE t1 SET column1 = 1, column2 = 2 WHERE column3 = 3', () => {
+    const result = converter.convert('UPDATE t1 SET column1 = 1, column2 = 2 WHERE column3 = 3');
+    expect(result).toBe('MATCH (t1:t1)\nWHERE t1.column3 = 3\nSET t1.column1 = 1, t1.column2 = 2');
+});
 
-// test('converts UPDATE t1 SET column1 = 1, column2 = 2 WHERE column3 = 3 AND column4 = 4', () => {
-//     const result = converter.convert('UPDATE t1 SET column1 = 1, column2 = 2 WHERE column3 = 3 AND column4 = 4');
-//     expect(result).toBe('MATCH (n:t1)\nWHERE n.column3 = 3 AND n.column4 = 4\nSET n.column1 = 1, n.column2 = 2');
-// });
+test('converts UPDATE t1 SET column1 = 1, column2 = 2 WHERE column3 = 3 AND column4 = 4', () => {
+    const result = converter.convert('UPDATE t1 SET column1 = 1, column2 = 2 WHERE column3 = 3 AND column4 = 4');
+    expect(result).toBe('MATCH (t1:t1)\nWHERE t1.column3 = 3 AND t1.column4 = 4\nSET t1.column1 = 1, t1.column2 = 2');
+});
